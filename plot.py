@@ -5,11 +5,15 @@ from collections import defaultdict
 from db import Session, Host, Event
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
 
 plt.style.use('ggplot')
 
 if __name__ == '__main__':
     session = Session()
+
+    with open('config.json') as infile:
+        config = json.load(infile)
 
     unique_hosts = { host.hostname for host in session.query(Host) }
     timeseries = defaultdict(list)
@@ -24,6 +28,7 @@ if __name__ == '__main__':
                 timeseries[hostname].append(0)
 
     df = pd.DataFrame(timeseries, index=pd.to_datetime(x, unit='s'))
+    df = df.drop(config['hosts_to_ignore'], axis=1)
 
     fig, axis = plt.subplots()
     df.resample('H').plot(ax=axis)
