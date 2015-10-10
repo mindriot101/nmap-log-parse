@@ -15,12 +15,12 @@ if __name__ == '__main__':
     with open('config.json') as infile:
         config = json.load(infile)
 
-    unique_hosts = { host.hostname for host in session.query(Host) }
+    unique_hosts = {host.hostname for host in session.query(Host)}
     timeseries = defaultdict(list)
     x = []
     for event in session.query(Event).order_by('timestamp'):
         x.append(event.timestamp)
-        observed_hostnames = { host.hostname for host in event.hosts }
+        observed_hostnames = {host.hostname for host in event.hosts}
         for hostname in unique_hosts:
             if hostname in observed_hostnames:
                 timeseries[hostname].append(1)
@@ -29,6 +29,7 @@ if __name__ == '__main__':
 
     df = pd.DataFrame(timeseries, index=pd.to_datetime(x, unit='s'))
     df = df.drop(config['hosts_to_ignore'], axis=1)
+    df = df.rename(columns=config['host_rename_mapping'])
 
     fig, axis = plt.subplots()
     df.resample('H').plot(ax=axis)
