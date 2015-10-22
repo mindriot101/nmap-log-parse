@@ -6,6 +6,7 @@ from db import Session, Host, Event
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
+import datetime
 
 plt.style.use('ggplot')
 
@@ -31,8 +32,11 @@ if __name__ == '__main__':
     df = df.drop(config['hosts_to_ignore'], axis=1)
     df = df.rename(columns=config['host_rename_mapping'])
 
+    now = datetime.datetime.now()
+    beginning = now - datetime.timedelta(days=1)
     fig, axis = plt.subplots()
     df.resample('H').plot(ax=axis)
-    axis.set(xlabel='Time', ylabel='Up', ylim=(0, 1.1))
+    axis.set(xlabel='Time', ylabel='Up', xlim=(beginning, now),
+             ylim=(0, 1.1))
     fig.tight_layout()
     plt.show()
