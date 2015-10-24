@@ -6,9 +6,11 @@ from db import Session, Host, Event
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
+import seaborn as sns
 import datetime
 
-plt.style.use('ggplot')
+sns.set(context='talk')
+sns.set_palette('Paired', n_colors=12)
 
 if __name__ == '__main__':
     session = Session()
