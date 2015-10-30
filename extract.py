@@ -4,7 +4,7 @@
 import xml.etree.ElementTree as ET
 from glob import iglob
 from db import Address, Host, Event, Session, Base
-
+import json
 
 def main():
 
@@ -29,7 +29,8 @@ def main():
             hostname_node = host.find('hostnames').find('hostname')
             if hostname_node is None:
                 continue
-            hostname = Host(hostname=hostname_node.attrib['name'])
+            hostname = Host.check_for_renames(
+                hostname=hostname_node.attrib['name'])
 
             addresses = []
             address_nodes = host.findall('address')

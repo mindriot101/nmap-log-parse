@@ -1,4 +1,5 @@
 {
     "hosts_to_ignore": [],
-    "host_rename_mapping": {}
+    "host_rename_mapping": {},
+    "hosts_to_combine": {}
 }
