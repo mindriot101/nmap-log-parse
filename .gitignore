@@ -3,3 +3,4 @@
 logs/*.xml
 !logs/.gitkeep
 config.json
+.vagrant
