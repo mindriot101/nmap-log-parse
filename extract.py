@@ -5,9 +5,7 @@ import xml.etree.ElementTree as ET
 from glob import iglob
 import db
 import json
-
-with open('config.json') as infile:
-    config = json.load(infile)
+import argparse
 
 
 def build_combines_list(mapping):
@@ -17,20 +15,25 @@ def build_combines_list(mapping):
         for host in hosts:
             if host in reverse and reverse[host] != target:
                 raise RuntimeError(
-                    'Multiple differing entries found for host %s: [%s, %s]' % (
+                    'Multiple differing entries found for host %s: [%s, %s]' %
+                    (
                         host, reverse[host], target))
             reverse[host] = target
     return reverse
 
-combines = build_combines_list(config.get('hosts_to_combine', {}))
-def check_for_renames(hostname):
+
+def check_for_renames(hostname, combines):
     return combines.get(hostname, hostname)
 
 
-def main():
+def main(args):
+    with open(args.config) as infile:
+        config = json.load(infile)
 
-    files = iglob('logs/*.xml')
-    database = db.Database('db.sqlite').clear_db().initialise_db()
+    combines = build_combines_list(config.get('hosts_to_combine', {}))
+
+    files = iglob('{logsdir}/*.xml'.format(logsdir=args.logsdir))
+    database = db.Database(args.database).clear_db().initialise_db()
 
     for fname in files:
         with open(fname) as infile:
@@ -49,12 +52,9 @@ def main():
             if hostname_node is None:
                 continue
 
-
-            hostname = check_for_renames(hostname_node.attrib['name'])
-            host_id = database.add_host(
-                hostname=hostname,
-                event_id=event_id,
-            )
+            hostname = check_for_renames(hostname_node.attrib['name'],
+                                         combines=combines)
+            host_id = database.add_host(hostname=hostname, event_id=event_id, )
 
             address_nodes = host.findall('address')
             for node in address_nodes:
@@ -68,4 +68,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('logsdir')
+    parser.add_argument('-d', '--database',
+                        required=False,
+                        default='db.sqlite')
+    parser.add_argument('-c', '--config',
+                        required=False,
+                        default='config.json')
+    main(parser.parse_args())
