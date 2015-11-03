@@ -6,6 +6,12 @@ from glob import iglob
 import db
 import json
 import argparse
+import logging
+
+
+logging.basicConfig(
+    level='INFO', format='[%(asctime)s] %(levelname)8s %(message)s')
+logger = logging.getLogger('extract.py')
 
 
 def build_combines_list(mapping):
@@ -36,6 +42,8 @@ def main(args):
     database = db.Database(args.database).clear_db().initialise_db()
 
     for fname in files:
+        logger.info('Extracting from %s', fname)
+
         with open(fname) as infile:
             root = ET.fromstring(infile.read())
 
