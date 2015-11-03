@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
-from db import Session, Host, Event
+import db
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
@@ -13,17 +13,20 @@ sns.set(context='talk')
 sns.set_palette('Paired', n_colors=12)
 
 if __name__ == '__main__':
-    session = Session()
 
     with open('config.json') as infile:
         config = json.load(infile)
 
-    unique_hosts = {host.hostname for host in session.query(Host)}
+    database = db.Database('db.sqlite')
+
+    # unique_hosts = {host.hostname for host in session.query(Host)}
+    unique_hosts = database.unique_hosts()
     timeseries = defaultdict(list)
     x = []
-    for event in session.query(Event).order_by('timestamp'):
+    for event in database.get_events():
         x.append(event.timestamp)
-        observed_hostnames = {host.hostname for host in event.hosts}
+        observed_hostnames = {hostname for hostname in
+                              database.get_hosts(event)}
         for hostname in unique_hosts:
             if hostname in observed_hostnames:
                 timeseries[hostname].append(1)

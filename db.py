@@ -1,65 +1,113 @@
 from __future__ import division, print_function, absolute_import
-from sqlalchemy import create_engine
-from sqlalchemy import Column, Float, Integer, String, ForeignKey, UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref
-from sqlalchemy.exc import IntegrityError
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import json
+import sqlite3
+from contextlib import contextmanager
+
+class Transaction(object):
+    def __init__(self, connection):
+        self.connection = connection
+        self.cursor = self.connection.cursor()
+
+    def __enter__(self):
+        return self.cursor
+
+    def __exit__(self, *args, **kwargs):
+        try:
+            self.connection.commit()
+        except:
+            self.connection.rollback()
+            raise
 
 
-engine = create_engine('sqlite:///db.sqlite')
-Base = declarative_base(bind=engine)
-Session = sessionmaker(bind=engine)
-
-with open('config.json') as infile:
-    config = json.load(infile)
+EventEntry = namedtuple('EventEntry', ['timestamp', 'event_id'])
 
 
-def build_combines_list(mapping):
-    reverse = {}
-    for target in mapping:
-        hosts = mapping[target]
-        for host in hosts:
-            if host in reverse and reverse[host] != target:
-                raise RuntimeError(
-                    'Multiple differing entries found for host %s: [%s, %s]' % (
-                        host, reverse[host], target))
-            reverse[host] = target
-    return reverse
+class Database(object):
+    tablenames = ['address', 'host', 'event']
+
+    def __init__(self, dbname):
+        self.dbname = dbname
+        self.connection = sqlite3.connect(self.dbname)
+
+    def cursor(self):
+        return Transaction(self.connection)
+
+    def clear_db(self):
+        with self.cursor() as cursor:
+            for name in self.tablenames:
+                cursor.execute('drop table if exists {}'.format(name))
+        return self
 
 
-combines = build_combines_list(config.get('hosts_to_combine', {}))
+    def initialise_db(self):
+        with self.cursor() as cursor:
+            cursor.execute('''
+                           CREATE TABLE event (
+                           id INTEGER NOT NULL,
+                           timestamp INTEGER NOT NULL,
+                           PRIMARY KEY (id));
+                           ''')
+
+            cursor.execute('''
+                           CREATE TABLE host (
+                           id INTEGER NOT NULL,
+                           hostname VARCHAR NOT NULL,
+                           event_id INTEGER,
+                           PRIMARY KEY (id),
+                           FOREIGN KEY(event_id) REFERENCES event (id));
+                           ''')
+
+            cursor.execute('''
+                           CREATE TABLE address (
+                           id INTEGER NOT NULL,
+                           type VARCHAR NOT NULL,
+                           address VARCHAR NOT NULL,
+                           host_id INTEGER,
+                           PRIMARY KEY (id),
+                           FOREIGN KEY(host_id) REFERENCES host (id));
+                           ''')
+        return self
 
 
-class Address(Base):
-    __tablename__ = 'address'
 
-    id = Column(Integer, primary_key=True)
-    type = Column(String, nullable=False)
-    address = Column(String, nullable=False)
-    host_id = Column(Integer, ForeignKey('host.id'))
+    def add_event(self, timestamp):
+        with self.cursor() as cursor:
+            cursor.execute('insert into event (timestamp) values (?)',
+                           (timestamp, ))
+            return cursor.lastrowid
 
-class Host(Base):
-    __tablename__ = 'host'
+    def add_host(self, hostname, event_id):
+        with self.cursor() as cursor:
+            cursor.execute(
+                'insert into host (hostname, event_id) values (?, ?)',
+                (hostname, event_id))
 
-    id = Column(Integer, primary_key=True)
-    hostname = Column(String, nullable=False)
-    event_id = Column(Integer, ForeignKey('event.id'))
-    addresses = relationship('Address', backref='host')
-
-    @classmethod
-    def check_for_renames(cls, hostname):
-        hostname = combines.get(hostname, hostname)
-        return cls(hostname=hostname)
+    def add_address(self, address, type, host_id):
+        with self.cursor() as cursor:
+            cursor.execute(
+                'insert into address (address, type, host_id) values (?, ?, ?)',
+                (address, type, host_id))
 
 
-class Event(Base):
-    __tablename__ = 'event'
+    def unique_hosts(self):
+        with self.cursor() as cursor:
+            cursor.execute('select distinct hostname from host')
+            return { row[0] for row in cursor.fetchall() }
 
-    id = Column(Integer, primary_key=True)
-    hosts = relationship('Host', backref='event')
-    timestamp = Column(Integer, nullable=False)
 
-    def __repr__(self):
-        return '<Event timestamp={self.timestamp}>'.format(self=self)
+    def get_events(self):
+        with self.cursor() as cursor:
+            cursor.execute(
+                'select id, timestamp from event order by timestamp')
+            for (event_id, timestamp) in cursor:
+                yield EventEntry(event_id=event_id, timestamp=timestamp)
+
+    def get_hosts(self, event):
+        with self.cursor() as cursor:
+            cursor.execute(
+                '''select hostname from host
+                where event_id = ?''',
+                (event.event_id, ))
+            for hostname, in cursor:
+                yield hostname
