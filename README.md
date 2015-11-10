@@ -6,12 +6,12 @@ My own version of https://github.com/phiresky/nmap-log-parse
 
 1. add this line to your **root** crontab on your raspberry pi (or other device that is always on):
 
-    `*/10 * * * * nmap -sn $subnet -oX - >> $outputpath/logs`
+    `*/10 * * * * /bin/bash -c "nmap -sn '<subnet>' -oX - > <outputpath>/nmaplog-$(date +\%s).xml"`
 
     where
 
-    - `$subnet` is your local network, e.g. '192.168.178.\*'
-    - `$outputpath` is the path where you want your log stored
+    - `<subnet>` is your local network, e.g. '192.168.178.\*'
+    - `<outputpath>` is the path where you want your log stored
         
 
     1. copy `config.json.example` to `config.json` and pass in to the
