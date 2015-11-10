@@ -35,7 +35,8 @@ def main(args):
             else:
                 timeseries[hostname].append(0)
 
-    df = pd.DataFrame(timeseries, index=pd.to_datetime(x, unit='s'))
+    df = pd.DataFrame(timeseries,
+                      index=[datetime.datetime.fromtimestamp(i) for i in x])
     df = df.drop(config['hosts_to_ignore'], axis=1)
     df = df.rename(columns=config['host_rename_mapping'])
 
