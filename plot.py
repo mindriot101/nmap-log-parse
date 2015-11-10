@@ -18,6 +18,9 @@ def main(args):
 
     # unique_hosts = {host.hostname for host in session.query(Host)}
     unique_hosts = database.unique_hosts()
+    if not unique_hosts:
+        raise ValueError('No hosts found. Are the logs in the correct format?')
+
     timeseries = defaultdict(list)
     x = []
     for event in database.get_events():
